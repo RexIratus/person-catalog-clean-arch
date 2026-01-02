@@ -1,0 +1,68 @@
+services:
+  # 1. Base de Datos (Tu configuración original mejorada)
+  db:
+    image: mysql:8.0
+    container_name: persona-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: PersonaDb
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Ruta a nuestros scripts de construcción y carga inicial de DB
+      - ./infra/database/scripts:/docker-entrypoint-initdb.d
+    networks:
+      - person-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # 2. Backend API (.NET 8)
+  persona-api:
+    build:
+      context: .
+      dockerfile: src/backend/PersonCatalog.Api/Dockerfile
+    container_name: persona-api
+    restart: on-failure
+    ports:
+      - "5268:8080" # 5268 externo -> 8080 interno
+    environment: # Acá definimos las variables de entorno (nuestro appsettings.json)
+      # Conectamos usando el nombre del contenedor 'persona-db'
+      - ConnectionStrings__DefaultConnection=Server=persona-db;Port=3306;Database=PersonaDb;User=root;Password=rootpassword;
+      - ASPNETCORE_URLS=http://+:8080
+      # CORS: Permitimos el frontend dockerizado (3000) y el local (5173)
+      - AllowedOrigins=http://localhost:5173;http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy # Esperamos a que el healthcheck de MySQL se complete
+    networks:
+      - person-network
+
+  # 3. Frontend React (Vite + Nginx)
+  persona-ui:
+    build:
+      context: .
+      dockerfile: src/frontend/Dockerfile
+    container_name: persona-ui
+    restart: on-failure
+    ports:
+      - "3000:80" # Acceso por navegador: http://localhost:3000
+    environment:
+      # El navegador del cliente necesita saber dónde está la API pública
+      # Si corres esto localmente, usa localhost:5268.
+      # Si fuera en la nube, sería la IP pública.
+      - VITE_API_URL=http://localhost:5268/api
+    depends_on:
+      - persona-api
+    networks:
+      - person-network
+
+volumes:
+  mysql_data:
+
+networks:
+  person-network:
+    driver: bridge
