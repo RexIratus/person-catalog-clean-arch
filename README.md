@@ -1,14 +1,39 @@
 # 📘 PersonCatalog - Paynau Full-Stack Serverless Solution
 
-![Build Status](https://img.shields.io/badge/Build-Passing-success)
-![Platform](https://img.shields.io/badge/Platform-AWS%20Serverless-orange)
-![License](https://img.shields.io/badge/License-MIT-blue.svg)
-![Tech Stack](https://img.shields.io/badge/.NET%208-React%2019-purple)
-![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20CQRS-green)
+![Build Status](https://img.shields.io/badge/Build-Passing-2ea44f?logo=github-actions&logoColor=white)
+![Platform](https://img.shields.io/badge/Platform-AWS_Serverless-FF9900?logo=serverless&logoColor=white)
+![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker&logoColor=white)
+![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
+![React](https://img.shields.io/badge/React-19-20232a?logo=react&logoColor=61DAFB)
+![Architecture](https://img.shields.io/badge/Architecture-Clean_%2B_CQRS-success)
+![License](https://img.shields.io/badge/License-MIT-blue?logo=open-source-initiative&logoColor=white)
 
 **PersonCatalog** es una solución **Full Stack Cloud-Native** diseñada para demostrar la implementación de patrones de diseño avanzados en un entorno empresarial. El sistema gestiona un catálogo de personas con capacidades de auditoría completa, *soft-delete*, y análisis estadístico en tiempo real, todo orquestado bajo una **Clean Architecture** estricta.
 
-![Imágen del Dashboard de la solución](./docs/images/portal-dashboard.png)
+##### Desktop Preview
+<p align="center">
+  <a href="./docs/images/portal-dashboard-desktop.png">
+    <img src="./docs/images/portal-dashboard-desktop.png" alt="Dashboard Desktop" height="200" />
+  </a>
+  <a href="./docs/images/portal-catalog-desktop.png">
+    <img src="./docs/images/portal-catalog-desktop.png" alt="Catálogo Desktop" height="200" />
+  </a>
+</p>
+
+##### Mobile Preview
+<p align="center">
+  <a href="./docs/images/portal-layout-mobile.png">
+    <img src="./docs/images/portal-layout-mobile.png" alt="Layout Mobile" height="380" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="./docs/images/portal-dashboard-mobile.png">
+    <img src="./docs/images/portal-dashboard-mobile.png" alt="Dashboard Mobile" height="380" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="./docs/images/portal-catalog-mobile.png">
+    <img src="./docs/images/portal-catalog-mobile.png" alt="Catálogo Mobile" height="380" />
+  </a>
+</p>
 
 ## 📑 Centro de Documentación
 

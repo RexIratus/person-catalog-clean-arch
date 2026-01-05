@@ -9,6 +9,18 @@ import { Save, ArrowLeft, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMask } from '@react-input/mask';
 
+// Lista de países para el selector de código de área
+const paises = [
+  { codigo: '505', nombre: 'Nicaragua',    bandera: '🇳🇮', mask: '____-____',      placeholder: '0000-0000',      regex: /^\d{4}-\d{4}$/ },
+  { codigo: '506', nombre: 'Costa Rica',   bandera: '🇨🇷', mask: '____-____',      placeholder: '0000-0000',      regex: /^\d{4}-\d{4}$/ },
+  { codigo: '503', nombre: 'El Salvador',  bandera: '🇸🇻', mask: '____-____',      placeholder: '0000-0000',      regex: /^\d{4}-\d{4}$/ },
+  { codigo: '504', nombre: 'Honduras',     bandera: '🇭🇳', mask: '____-____',      placeholder: '0000-0000',      regex: /^\d{4}-\d{4}$/ },
+  { codigo: '502', nombre: 'Guatemala',    bandera: '🇬🇹', mask: '____-____',      placeholder: '0000-0000',      regex: /^\d{4}-\d{4}$/ },
+  { codigo: '507', nombre: 'Panamá',       bandera: '🇵🇦', mask: '____-____',      placeholder: '0000-0000',      regex: /^\d{4}-\d{4}$/ },
+  { codigo: '52',  nombre: 'México',       bandera: '🇲🇽', mask: '__-____-____',  placeholder: '00-0000-0000',  regex: /^\d{2}-\d{4}-\d{4}$/ },
+  { codigo: '1',   nombre: 'EE.UU./Canadá',bandera: '🇨🇦 🇺🇸', mask: '(___) ___-____', placeholder: '(000) 000-0000', regex: /^\(\d{3}\) \d{3}-\d{4}$/ },
+];
+
 // Esquema de Validación
 const schema = yup.object({
   nombre: yup.string()
@@ -26,9 +38,15 @@ const schema = yup.object({
   fechaNacimiento: yup.string()
     .required('Fecha requerida')
     .test('not-future', 'No puede ser una fecha futura', val => !val || new Date(val) <= new Date()),
-  telefono: yup.string()
-    .required('Requerido')
-    .matches(/^\(\d{3}\) \d{4}-\d{4}$/, 'Formato incompleto, faltan dígitos'),
+  codigoPais: yup.string().required('Seleccione un país'),
+  numeroTelefono: yup.string().required('El número es requerido').test('formato-valido', 'El formato del número no es válido para el país.', function(value) {
+    const { codigoPais } = this.parent;
+    if (!value || !codigoPais) return true;
+
+    const pais = paises.find(p => p.codigo === codigoPais);
+    if (!pais) return false;
+    return pais.regex.test(value);
+  }),
   direccion: yup.string()
     .required('Requerido')
     .min(10, 'La dirección debe ser más descriptiva (mín. 10 letras)'),
@@ -36,25 +54,34 @@ const schema = yup.object({
   estadoCivil: yup.string().required('Seleccione estado civil'),
 }).required();
 
+// Tipo para los valores del formulario, separando el teléfono
+type PersonaFormData = Omit<PersonaFormValues, 'telefono'> & {
+  codigoPais: string;
+  numeroTelefono: string;
+};
+
 export const PersonaForm = () => {
   const { id } = useParams(); // Si hay ID, es edición
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const isEdit = !!id;  
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<PersonaFormValues>({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<PersonaFormData>({
     resolver: yupResolver(schema),
-    mode: 'onChange'
+    mode: 'onChange',
+    defaultValues: { codigoPais: '505' }
   });
-  const phoneMaskRef = useMask({ mask: '(505) ____-____', replacement: { _: /\d/ } });
-  const { ref: telefonoRef, ...telefonoRest } = register('telefono');
+
+  const selectedCodigoPais = watch('codigoPais');
+  const paisSeleccionado = paises.find(p => p.codigo === selectedCodigoPais) || paises[0];
+  const phoneMaskRef = useMask({ mask: paisSeleccionado.mask, replacement: { _: /\d/ } });
+  const { ref: numeroTelefonoFormRef, ...numeroTelefonoProps } = register('numeroTelefono');
 
   // Cargar datos si es edición
   useEffect(() => {
     if (isEdit) {
       setLoading(true);
-      api.get(`/Personas?id=${id}`)
+      api.get('/Personas')
       .then(res => {
-          // Búsqueda específica de persona en la lista
           const persona = res.data.find((p: any) => p.id === Number(id));
           if (persona) {
             // Formatear fecha para el input type="date" (YYYY-MM-DD)
@@ -64,19 +91,39 @@ export const PersonaForm = () => {
             setValue('apellido', persona.apellido);
             setValue('email', persona.email);
             setValue('fechaNacimiento', dateStr);
-            setValue('telefono', persona.telefono);
+            
+            // Parsear teléfono para separar código y número
+            const telRegex = /\((\d+)\)\s*(.*)/;
+            const telMatch = persona.telefono?.match(telRegex);
+            if (telMatch) {
+              setValue('codigoPais', telMatch[1], { shouldValidate: false });
+              setValue('numeroTelefono', telMatch[2], { shouldValidate: false });
+            }
+
             setValue('direccion', persona.direccion);
             setValue('genero', persona.genero);           
             // Normalizamos estado civil para el select (si viene "Soltera" lo pasamos a "Soltero" para que el UI lo reconozca)
             const estadoNormalizado = persona.estadoCivil.endsWith('a') ? persona.estadoCivil.slice(0, -1) + 'o' : persona.estadoCivil;
             setValue('estadoCivil', estadoNormalizado);
+          } else {
+            // Si no se encuentra la persona, lanzamos un error para que lo capture el catch
+            throw new Error(`No se encontró la persona con el ID: ${id}`);
           }
       })
-      .finally(() => setLoading(false));
+      .catch(error => {
+        console.error("Error al cargar los datos de la persona:", error);
+        alert("No se pudo cargar la información para la edición.");
+        navigate('/personas');
+      }).finally(() => {
+        setLoading(false);
+      });
+    } else {
+      // Para formularios nuevos, establecemos un país por defecto
+      setValue('codigoPais', '505');
     }
-  }, [id, isEdit, setValue]);
+  }, [id, isEdit, setValue, navigate]);
 
-  const onSubmit = async (data: PersonaFormValues) => {
+  const onSubmit = async (data: PersonaFormData) => {
     setLoading(true);
     try {
       // Se ajusta la gramática del estado civil según género
@@ -85,7 +132,18 @@ export const PersonaForm = () => {
         // Si es femenino, cambiamos la terminación 'o' por 'a' (ej: Soltero -> Soltera)
         estadoCivilFinal = estadoCivilFinal.replace(/o$/, 'a');
       }
-      const payload = { ...data, estadoCivil: estadoCivilFinal };
+      const telefonoCompleto = `(${data.codigoPais}) ${data.numeroTelefono.trim()}`;
+
+      const payload: PersonaFormValues = {
+        nombre: data.nombre,
+        apellido: data.apellido,
+        email: data.email,
+        fechaNacimiento: data.fechaNacimiento,
+        telefono: telefonoCompleto,
+        direccion: data.direccion,
+        genero: data.genero,
+        estadoCivil: estadoCivilFinal,
+      };
 
       if (isEdit) {
         await api.put(`/Personas/${id}`, { id: Number(id), ...payload });
@@ -143,16 +201,35 @@ export const PersonaForm = () => {
           {/* Teléfono */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-            <input 
-              {...telefonoRest}
-              ref={(e) => {
-                telefonoRef(e);
-                if (e) phoneMaskRef.current = e;
-              }}
-              placeholder="(505) 8888-8888"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" 
-            />
-            <p className="text-red-500 text-xs mt-1">{errors.telefono?.message}</p>
+            <div className="flex gap-2">
+              <div className="w-2/5 md:w-1/3">
+                <select 
+                  {...register('codigoPais')} 
+                  onChange={(e) => {
+                    register('codigoPais').onChange(e); // Comportamiento por defecto de RHF
+                    setValue('numeroTelefono', '', { shouldValidate: true }); // Limpiar campo de teléfono
+                  }}
+                  className="w-full h-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white appearance-none text-center">
+                  {paises.map(p => (
+                    <option key={p.codigo} value={p.codigo}>{p.bandera} +{p.codigo}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="w-3/5 md:w-2/3">
+                <input
+                  {...numeroTelefonoProps}
+                  ref={(el) => {
+                    numeroTelefonoFormRef(el);
+                    if (el) {
+                      phoneMaskRef.current = el;
+                    }
+                  }}
+                  placeholder={paisSeleccionado.placeholder}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" 
+                />
+              </div>
+            </div>
+            <p className="text-red-500 text-xs mt-1">{errors.codigoPais?.message || errors.numeroTelefono?.message}</p>
           </div>
 
           {/* Fecha Nacimiento */}

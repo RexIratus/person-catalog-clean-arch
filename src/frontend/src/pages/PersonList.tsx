@@ -2,8 +2,19 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import type { Persona } from '../types/Persona';
-import { Edit2, Trash2, Plus, Search, Loader2, RefreshCcw, Filter, X } from 'lucide-react';
+import { Edit2, Trash2, Plus, Search, Loader2, RefreshCcw, Filter, X, Mail, Phone, MapPin, Calendar, User, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+const paises = [
+  { codigo: '505', nombre: 'Nicaragua',    bandera: '🇳🇮' },
+  { codigo: '506', nombre: 'Costa Rica',   bandera: '🇨🇷' },
+  { codigo: '503', nombre: 'El Salvador',  bandera: '🇸🇻' },
+  { codigo: '504', nombre: 'Honduras',     bandera: '🇭🇳' },
+  { codigo: '502', nombre: 'Guatemala',    bandera: '🇬🇹' },
+  { codigo: '507', nombre: 'Panamá',       bandera: '🇵🇦' },
+  { codigo: '52',  nombre: 'México',       bandera: '🇲🇽' },
+  { codigo: '1',   nombre: 'EE.UU./Canadá',bandera: '🇨🇦 🇺🇸' },
+];
 
 export const PersonList = () => {
   const [personas, setPersonas] = useState<Persona[]>([]);
@@ -51,7 +62,7 @@ export const PersonList = () => {
 
   // Lógica de filtros de búsqueda
   const filteredPersonas = personas.filter(p => {
-    // 1. Filtro de Activos/Inactivos
+    // 1. Filtro de Activos/Inactivos (si showInactive es false, ocultar inactivos)
     if (showInactive ? p.activo : !p.activo) return false;
 
     // 2. Filtro de Género
@@ -74,6 +85,94 @@ export const PersonList = () => {
 
     return true;
   });
+
+  const getFlagForPhone = (phone: string | undefined): string => {
+    if (!phone) return '';
+    const match = phone.match(/\((\d+)\)/);
+    if (match) {
+      const countryCode = match[1];
+      const country = paises.find(p => p.codigo === countryCode);
+      return country ? `${country.bandera} ` : '';
+    }
+    return '';
+  };
+
+  // Componente de Tarjeta para vista móvil
+  const PersonCard = ({ persona, handleDelete, handleReactivate }: { persona: Persona, handleDelete: (id: number, nombre: string) => void, handleReactivate: (id: number, nombre: string) => void }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 ${!persona.activo ? 'opacity-60 bg-gray-50' : ''}`}
+    >
+      <div className="flex justify-between items-start mb-2">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">{persona.nombre} {persona.apellido}</h3>
+          <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
+            <User size={14} />
+            <span>{persona.genero}</span>
+            <Heart size={14} />
+            <span>{persona.estadoCivil}</span>
+          </div>
+        </div>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+          persona.activo 
+            ? 'bg-green-50 text-green-700 border-green-200' 
+            : 'bg-red-50 text-red-700 border-red-200'
+        }`}>
+          <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${persona.activo ? 'bg-green-500' : 'bg-red-500'}`}></span>
+          {persona.activo ? 'Activo' : 'Inactivo'}
+        </span>
+      </div>
+
+      <div className="space-y-1 text-sm text-gray-700 mb-4">
+        <div className="flex items-center gap-2">
+          <Mail size={14} className="text-gray-500" />
+          <span className="font-mono">{persona.email}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Phone size={14} className="text-gray-500" />
+          <span>{getFlagForPhone(persona.telefono)}{persona.telefono}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <MapPin size={14} className="text-gray-500" />
+          <span className="truncate">{persona.direccion}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Calendar size={14} className="text-gray-500" />
+          <span>{new Date(persona.fechaNacimiento).toLocaleDateString()}</span>
+        </div>
+      </div>
+
+      <div className="flex justify-end items-center gap-2 border-t pt-3 mt-3">
+        <Link 
+          to={`/personas/editar/${persona.id}`} 
+          className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors tooltip"
+          title="Editar"
+        >
+          <Edit2 size={18} />
+        </Link>
+        
+        {persona.activo ? (
+          <button 
+            onClick={() => handleDelete(persona.id, persona.nombre)}
+            className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors" 
+            title="Desactivar"
+          >
+            <Trash2 size={18} />
+          </button>
+        ) : (
+          <button 
+            onClick={() => handleReactivate(persona.id, persona.nombre)}
+            className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors" 
+            title="Reactivar"
+          >
+            <RefreshCcw size={18} />
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
 
   return (
     <div className="space-y-6">
@@ -151,8 +250,38 @@ export const PersonList = () => {
         </div>
       </div>
 
+      {/* Vista de Tarjetas (Mobile) */}
+      <div className="grid grid-cols-1 gap-4 md:hidden">
+        {loading ? (
+          <div className="col-span-1 text-center py-20">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="animate-spin text-blue-500" size={32} />
+              <span className="text-gray-400 text-sm">Cargando datos...</span>
+            </div>
+          </div>
+        ) : filteredPersonas.length === 0 ? (
+          <div className="col-span-1 text-center py-20">
+            <div className="flex flex-col items-center gap-2 text-gray-400">
+              <Search size={48} className="opacity-20" />
+              <p>No se encontraron registros con esos criterios.</p>
+            </div>
+          </div>
+        ) : (
+          <AnimatePresence>
+            {filteredPersonas.map((persona) => (
+              <PersonCard 
+                key={persona.id} 
+                persona={persona} 
+                handleDelete={handleDelete} 
+                handleReactivate={handleReactivate} 
+              />
+            ))}
+          </AnimatePresence>
+        )}
+      </div>
+
       {/* Tabla */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -202,7 +331,7 @@ export const PersonList = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900 font-mono">{persona.email}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{persona.telefono}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{getFlagForPhone(persona.telefono)}{persona.telefono}</div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 truncate max-w-xs" title={persona.direccion}>
                         {persona.direccion}
